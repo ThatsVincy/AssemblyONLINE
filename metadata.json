@@ -1,0 +1,5 @@
+{
+  "name": "AssemblyOnline",
+  "description": "A comprehensive 8086 Assembly IDE and emulator, inspired by emu8086. Features a code editor, real-time register tracking, memory inspection, and BIOS/DOS screen emulation.",
+  "requestFramePermissions": []
+}
