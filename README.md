@@ -1,4 +1,4 @@
-#Creato a scopo didattico, non è da intendersi come sostituzione a programmi più professionali.
+# Creato a scopo didattico, non è da intendersi come sostituzione a programmi più professionali.
 **Da studenti per studenti**
 
 L'app è disponibile pubblicamente direttamente da Google AI Studio, parte del codice è stato generato da Gemini.
