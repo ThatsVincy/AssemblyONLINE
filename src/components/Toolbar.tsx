@@ -1,20 +1,34 @@
 import React from 'react';
-import { Play, StepForward, RotateCcw, Cpu, Terminal, FileCode, Layers, Download, Upload, Command } from 'lucide-react';
+import { Play, StepForward, StepBack, RotateCcw, FileCode, Command, Calculator, ArrowRightLeft, FileJson, Image } from 'lucide-react';
 import { cn } from '../lib/utils';
 
 interface ToolbarProps {
   onAssemble: () => void;
   onStep: () => void;
+  onStepBack: () => void;
   onRun: () => void;
   onReset: () => void;
-  onDownload: () => void;
-  onUpload: () => void;
+  onOpenConverter: () => void;
+  onOpenCalculator: () => void;
+  onExportHtml: () => void;
+  onExportJpg: () => void;
   isAssembled: boolean;
   isRunning: boolean;
-  fileName: string;
 }
 
-export const Toolbar = ({ onAssemble, onStep, onRun, onReset, onDownload, onUpload, isAssembled, isRunning, fileName }: ToolbarProps) => {
+export const Toolbar = ({ 
+  onAssemble, 
+  onStep, 
+  onStepBack, 
+  onRun, 
+  onReset, 
+  onOpenConverter, 
+  onOpenCalculator,
+  onExportHtml,
+  onExportJpg,
+  isAssembled, 
+  isRunning 
+}: ToolbarProps) => {
   const isMac = typeof navigator !== 'undefined' && /Mac|iPod|iPhone|iPad/.test(navigator.platform);
 
   return (
@@ -55,6 +69,20 @@ export const Toolbar = ({ onAssemble, onStep, onRun, onReset, onDownload, onUplo
         </button>
 
         <button
+          onClick={onStepBack}
+          disabled={!isAssembled || isRunning}
+          className={cn(
+            "flex items-center gap-2 px-2 lg:px-3 py-1.5 text-xs font-medium rounded-lg transition-all group",
+            isAssembled && !isRunning 
+              ? "text-amber-400 hover:bg-amber-500/10" 
+              : "text-zinc-600 cursor-not-allowed"
+          )}
+          title="Step Indietro"
+        >
+          <StepBack size={14} />
+        </button>
+
+        <button
           onClick={onStep}
           disabled={!isAssembled || isRunning}
           className={cn(
@@ -65,7 +93,7 @@ export const Toolbar = ({ onAssemble, onStep, onRun, onReset, onDownload, onUplo
           )}
         >
           <StepForward size={14} />
-          <span className="hidden sm:inline">Step singolo</span>
+          <span className="hidden sm:inline">Step</span>
           <div className="hidden lg:flex items-center gap-0.5 px-1.5 py-0.5 bg-black/40 rounded text-[9px] font-bold text-zinc-500 group-hover:text-blue-500/70 transition-colors">
             {isMac ? <Command size={8} /> : <span className="text-[8px]">CTRL</span>}
             <span>{isMac ? 'S' : 'F8'}</span>
@@ -87,26 +115,41 @@ export const Toolbar = ({ onAssemble, onStep, onRun, onReset, onDownload, onUplo
 
       <div className="w-px h-4 bg-white/10 mx-1 shrink-0" />
 
-      <div className="flex items-center gap-1 lg:gap-2 ml-auto">
-        <div className="hidden xl:flex items-center gap-2 px-3 py-1.5 bg-black/40 border border-white/5 rounded-lg">
-          <FileCode size={12} className="text-zinc-500" />
-          <span className="text-[10px] font-mono text-zinc-400 truncate max-w-[100px] lg:max-w-[150px]">{fileName}</span>
-        </div>
-
+      <div className="flex items-center gap-1">
         <button
-          onClick={onDownload}
-          className="p-1.5 text-zinc-400 hover:text-zinc-200 hover:bg-white/5 rounded-lg transition-colors"
-          title="Scarica .asm"
+          onClick={onOpenConverter}
+          className="flex items-center gap-2 px-2 lg:px-3 py-1.5 text-xs font-medium text-zinc-400 hover:text-emerald-400 hover:bg-white/5 rounded-lg transition-colors"
+          title="Convertitore Base"
         >
-          <Download size={14} />
+          <ArrowRightLeft size={14} />
+          <span className="hidden lg:inline">Convertitore</span>
         </button>
-
         <button
-          onClick={onUpload}
-          className="p-1.5 text-zinc-400 hover:text-zinc-200 hover:bg-white/5 rounded-lg transition-colors"
-          title="Carica .asm"
+          onClick={onOpenCalculator}
+          className="flex items-center gap-2 px-2 lg:px-3 py-1.5 text-xs font-medium text-zinc-400 hover:text-emerald-400 hover:bg-white/5 rounded-lg transition-colors"
+          title="Calcolatrice"
         >
-          <Upload size={14} />
+          <Calculator size={14} />
+          <span className="hidden lg:inline">Calc</span>
+        </button>
+      </div>
+
+      <div className="w-px h-4 bg-white/10 mx-1 shrink-0" />
+
+      <div className="flex items-center gap-1 ml-auto">
+        <button
+          onClick={onExportHtml}
+          className="p-1.5 text-zinc-400 hover:text-zinc-200 hover:bg-white/5 rounded-lg transition-colors"
+          title="Esporta HTML"
+        >
+          <FileJson size={14} />
+        </button>
+        <button
+          onClick={onExportJpg}
+          className="p-1.5 text-zinc-400 hover:text-zinc-200 hover:bg-white/5 rounded-lg transition-colors"
+          title="Esporta JPG"
+        >
+          <Image size={14} />
         </button>
       </div>
     </div>

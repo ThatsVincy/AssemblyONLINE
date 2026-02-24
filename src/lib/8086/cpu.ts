@@ -35,6 +35,7 @@ export class CPU8086 {
   isHalted: boolean = false;
   stdout: string[] = [];
   lastError: string | null = null;
+  onMemoryWrite?: (addr: number, oldVal: number, newVal: number) => void;
 
   constructor() {
     this.reset();
@@ -120,7 +121,13 @@ export class CPU8086 {
   }
 
   writeMem8(addr: number, val: number) {
-    this.memory[addr & 0xFFFFF] = val & 0xFF;
+    const physicalAddr = addr & 0xFFFFF;
+    const oldVal = this.memory[physicalAddr];
+    const newVal = val & 0xFF;
+    if (this.onMemoryWrite) {
+      this.onMemoryWrite(physicalAddr, oldVal, newVal);
+    }
+    this.memory[physicalAddr] = newVal;
   }
 
   writeMem16(addr: number, val: number) {

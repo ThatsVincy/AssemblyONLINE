@@ -12,10 +12,15 @@ import { Toolbar } from './components/Toolbar';
 import { Screen } from './components/Screen';
 import { LibraryPanel } from './components/LibraryPanel';
 import { TutorialOverlay } from './components/TutorialOverlay';
+import { BaseConverter } from './components/BaseConverter';
+import { ProgrammerCalculator } from './components/ProgrammerCalculator';
+import { DragDropOverlay } from './components/DragDropOverlay';
 import { Tutorial } from './constants/examples';
-import { Cpu, Terminal, FileCode, Layers, Info, Database, BookOpen, CheckCircle2, XCircle, AlertCircle } from 'lucide-react';
+import { Cpu, Terminal, FileCode, Layers, Info, Database, BookOpen, CheckCircle2, XCircle, AlertCircle, Download, Upload } from 'lucide-react';
 import { cn } from './lib/utils';
 import { AnimatePresence, motion } from 'motion/react';
+import confetti from 'canvas-confetti';
+import { toJpeg } from 'html-to-image';
 
 const DEFAULT_CODE = `; 8086 Variable Swap Example
 data segment
@@ -74,13 +79,13 @@ const assemblyMode = StreamLanguage.define({
 });
 
 const assemblyHighlightStyle = HighlightStyle.define([
-  { tag: tags.comment, color: "#94a3b8" }, // slate-400 (Light Grayish)
-  { tag: tags.keyword, color: "#064e3b", fontWeight: "bold" }, // emerald-900 (Very Dark Green)
+  { tag: tags.comment, color: "#a1a1aa" }, // zinc-400 (Light Gray)
+  { tag: tags.keyword, color: "#047857", fontWeight: "bold" }, // emerald-700 (Darker Green)
   { tag: tags.variableName, color: "#059669" }, // emerald-600
-  { tag: tags.number, color: "#0d9488" }, // teal-600
-  { tag: tags.labelName, color: "#047857" }, // emerald-700
-  { tag: tags.atom, color: "#334155" }, // slate-700
-  { tag: tags.string, color: "#0d9488" }
+  { tag: tags.number, color: "#d97706" }, // amber-600 (Darker Amber)
+  { tag: tags.labelName, color: "#db2777" }, // pink-600 (Darker Pink)
+  { tag: tags.atom, color: "#52525b" }, // zinc-600
+  { tag: tags.string, color: "#d97706" }
 ]);
 
 const addLineHighlight = StateEffect.define<number>();
@@ -129,6 +134,11 @@ export default function App() {
   const [isHalted, setIsHalted] = useState(false);
   const [notification, setNotification] = useState<{ message: string; type: 'success' | 'error' } | null>(null);
   
+  const [showConverter, setShowConverter] = useState(false);
+  const [showCalculator, setShowCalculator] = useState(false);
+  const [isDragging, setIsDragging] = useState(false);
+  const [logoClicks, setLogoClicks] = useState(0);
+
   const assemblerRef = useRef(new Assembler());
   const emulatorRef = useRef(new Emulator());
   const editorRef = useRef<EditorView | null>(null);
@@ -168,7 +178,7 @@ export default function App() {
     } else {
       setCurrentLine(0);
     }
-  }, [registers, instructions]);
+  }, [registers, instructions, isHalted]);
 
   const handleAssemble = useCallback(() => {
     const { instructions: insts, labels, variables: vars, errors: assemblyErrors } = assemblerRef.current.assemble(code);
@@ -195,12 +205,21 @@ export default function App() {
     updateState();
     if (!active) setIsRunning(false);
     else {
-      // Small delay to show "In Esecuzione" even for a single step
       setTimeout(() => {
         if (!runIntervalRef.current) setIsRunning(false);
       }, 200);
     }
   }, [updateState]);
+
+  const handleStepBack = useCallback(() => {
+    const success = emulatorRef.current.stepBack();
+    if (success) {
+      updateState();
+      setIsHalted(false); // If we step back from halted state
+    } else {
+      showNotification("Nessuno step precedente disponibile", "error");
+    }
+  }, [updateState, showNotification]);
 
   const handleRun = useCallback(() => {
     if (isRunning) return;
@@ -264,8 +283,115 @@ export default function App() {
       }
     };
     reader.readAsText(file);
-    // Reset input so the same file can be uploaded again if needed
     e.target.value = '';
+  }, [showNotification]);
+
+  const handleExportHtml = useCallback(() => {
+    const htmlContent = `
+      <html>
+        <head>
+          <title>Export - ${fileName}</title>
+          <style>
+            body { font-family: monospace; background: #1e1e1e; color: #d4d4d4; padding: 20px; }
+            .code { white-space: pre-wrap; }
+            .output { margin-top: 20px; border-top: 1px solid #333; padding-top: 20px; color: #10b981; }
+          </style>
+        </head>
+        <body>
+          <h2>Codice Assembly</h2>
+          <div class="code">${code}</div>
+          <div class="output">
+            <h2>Output</h2>
+            <pre>${stdout.join('')}</pre>
+          </div>
+        </body>
+      </html>
+    `;
+    const blob = new Blob([htmlContent], { type: 'text/html' });
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement('a');
+    a.href = url;
+    a.download = `${fileName.replace('.asm', '')}_export.html`;
+    document.body.appendChild(a);
+    a.click();
+    document.body.removeChild(a);
+    URL.revokeObjectURL(url);
+  }, [code, stdout, fileName]);
+
+  const handleExportJpg = useCallback(async () => {
+    if (editorRef.current) {
+      try {
+        const dataUrl = await toJpeg(editorRef.current.dom as HTMLElement, { quality: 0.95, backgroundColor: '#18181b' });
+        const a = document.createElement('a');
+        a.href = dataUrl;
+        a.download = `${fileName.replace('.asm', '')}_code.jpg`;
+        document.body.appendChild(a);
+        a.click();
+        document.body.removeChild(a);
+      } catch (err) {
+        showNotification("Errore durante l'esportazione JPG", "error");
+      }
+    }
+  }, [fileName, showNotification]);
+
+  const handleDragOver = useCallback((e: React.DragEvent) => {
+    e.preventDefault();
+    setIsDragging(true);
+  }, []);
+
+  const handleDragLeave = useCallback((e: React.DragEvent) => {
+    e.preventDefault();
+    setIsDragging(false);
+  }, []);
+
+  const handleDrop = useCallback((e: React.DragEvent) => {
+    e.preventDefault();
+    setIsDragging(false);
+    
+    const file = e.dataTransfer.files?.[0];
+    if (file && (file.name.endsWith('.asm') || file.name.endsWith('.txt'))) {
+      const reader = new FileReader();
+      reader.onload = (event) => {
+        const content = event.target?.result as string;
+        if (content) {
+          setCode(content);
+          setFileName(file.name);
+          setIsAssembled(false);
+          showNotification(`File "${file.name}" caricato con successo!`, 'success');
+        }
+      };
+      reader.readAsText(file);
+    } else {
+      showNotification("Formato file non supportato. Usa .asm o .txt", "error");
+    }
+  }, [showNotification]);
+
+  const handleLogoClick = useCallback(() => {
+    setLogoClicks(prev => {
+      const newCount = prev + 1;
+      if (newCount === 5) {
+        confetti({
+          particleCount: 150,
+          spread: 70,
+          origin: { y: 0.6 },
+          colors: ['#10b981', '#3b82f6', '#f59e0b', '#ef4444']
+        });
+        
+        const phrases = [
+          "Questa webapp è mooolto meglio di emu8086 eh?",
+          "La professoressa Spicchiale è la migliore!",
+          "Assembly non è mai stato così verde!",
+          "Chi ha bisogno di DOSBox quando hai questo?"
+        ];
+        // Higher chance for the requested phrase
+        const random = Math.random();
+        const phrase = random < 0.4 ? phrases[1] : phrases[Math.floor(Math.random() * phrases.length)];
+        
+        showNotification(phrase, "success");
+        return 0;
+      }
+      return newCount;
+    });
   }, [showNotification]);
 
   // Keyboard shortcuts
@@ -327,11 +453,20 @@ export default function App() {
   }, [currentLine]);
 
   return (
-    <div className="min-h-screen bg-zinc-950 text-zinc-100 flex flex-col font-sans selection:bg-emerald-500/30">
+    <div 
+      className="min-h-screen bg-zinc-950 text-zinc-100 flex flex-col font-sans selection:bg-emerald-500/30"
+      onDragOver={handleDragOver}
+      onDragLeave={handleDragLeave}
+      onDrop={handleDrop}
+    >
+      <DragDropOverlay isDragging={isDragging} />
+      <BaseConverter isOpen={showConverter} onClose={() => setShowConverter(false)} />
+      <ProgrammerCalculator isOpen={showCalculator} onClose={() => setShowCalculator(false)} />
+
       {/* Header */}
       <header className="h-14 border-b border-white/10 flex items-center justify-between px-6 bg-zinc-900 sticky top-0 z-50">
-        <div className="flex items-center gap-3">
-          <div className="w-8 h-8 bg-emerald-500 rounded-lg flex items-center justify-center shadow-lg shadow-emerald-500/20">
+        <div className="flex items-center gap-3 cursor-pointer select-none" onClick={handleLogoClick}>
+          <div className="w-8 h-8 bg-emerald-500 rounded-lg flex items-center justify-center shadow-lg shadow-emerald-500/20 transition-transform active:scale-95">
             <Cpu className="text-zinc-950" size={20} />
           </div>
           <div>
@@ -339,7 +474,32 @@ export default function App() {
             <p className="text-[10px] text-zinc-500 uppercase font-semibold tracking-widest">Emulator & Compiler</p>
           </div>
         </div>
-        <div className="flex items-center gap-6">
+        <div className="flex items-center gap-4">
+          <div className="hidden xl:flex items-center gap-2 px-3 py-1.5 bg-black/40 border border-white/5 rounded-lg">
+            <FileCode size={12} className="text-zinc-500" />
+            <span className="text-[10px] font-mono text-zinc-400 truncate max-w-[100px] lg:max-w-[150px]">{fileName}</span>
+          </div>
+
+          <div className="flex items-center gap-1">
+            <button
+              onClick={handleDownload}
+              className="p-1.5 text-zinc-400 hover:text-zinc-200 hover:bg-white/5 rounded-lg transition-colors"
+              title="Scarica .asm"
+            >
+              <Download size={14} />
+            </button>
+
+            <button
+              onClick={handleUpload}
+              className="p-1.5 text-zinc-400 hover:text-zinc-200 hover:bg-white/5 rounded-lg transition-colors"
+              title="Carica .asm"
+            >
+              <Upload size={14} />
+            </button>
+          </div>
+
+          <div className="w-px h-4 bg-white/10 mx-1 shrink-0" />
+
           <button
             onClick={() => setShowLibrary(!showLibrary)}
             className={cn(
@@ -378,13 +538,15 @@ export default function App() {
           <Toolbar 
             onAssemble={handleAssemble}
             onStep={handleStep}
+            onStepBack={handleStepBack}
             onRun={handleRun}
             onReset={handleReset}
-            onDownload={handleDownload}
-            onUpload={handleUpload}
+            onOpenConverter={() => setShowConverter(true)}
+            onOpenCalculator={() => setShowCalculator(true)}
+            onExportHtml={handleExportHtml}
+            onExportJpg={handleExportJpg}
             isAssembled={isAssembled}
             isRunning={isRunning}
-            fileName={fileName}
           />
           <input 
             type="file" 
@@ -494,8 +656,6 @@ export default function App() {
             tutorial={activeTutorial}
             onClose={() => setActiveTutorial(null)}
             onCodeUpdate={(newCode) => {
-              // Append or replace? Usually for tutorials, we might want to append or show how it works.
-              // Let's replace for simplicity in this context.
               setCode(prev => prev + "\n" + newCode);
             }}
           />
@@ -510,7 +670,7 @@ export default function App() {
           <div className="space-y-4">
             <div className="flex items-center gap-2 px-1">
               <Terminal size={14} className="text-zinc-500" />
-              <span className="text-[10px] font-bold text-zinc-500 uppercase tracking-widest">Uscita</span>
+              <span className="text-[10px] font-bold text-zinc-500 uppercase tracking-widest">Output</span>
             </div>
             <Screen stdout={stdout} />
           </div>

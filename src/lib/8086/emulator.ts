@@ -133,12 +133,22 @@ export class Assembler {
   }
 }
 
+export type HistoryEntry = {
+  registers: Record<string, number>;
+  flags: any;
+  memoryChanges: { addr: number, val: number }[];
+  stdoutLength: number;
+  pc: number;
+  isHalted: boolean;
+};
+
 export class Emulator {
   cpu: CPU8086;
   instructions: Instruction[] = [];
   labels: Record<string, number> = {};
   variables: Variable[] = [];
   pc: number = 0; // Index in instructions array
+  history: HistoryEntry[] = [];
 
   constructor() {
     this.cpu = new CPU8086();
@@ -150,6 +160,7 @@ export class Emulator {
     this.labels = labels;
     this.variables = variables;
     this.pc = 0;
+    this.history = [];
     
     // Initialize memory with variable values
     variables.forEach(v => {
@@ -168,6 +179,19 @@ export class Emulator {
   step(): boolean {
     if (this.pc >= this.instructions.length || this.cpu.isHalted) return false;
 
+    const entry: HistoryEntry = {
+      registers: { ...this.cpu.registers },
+      flags: { ...this.cpu.flags },
+      memoryChanges: [],
+      stdoutLength: this.cpu.stdout.length,
+      pc: this.pc,
+      isHalted: this.cpu.isHalted
+    };
+
+    this.cpu.onMemoryWrite = (addr, oldVal, newVal) => {
+      entry.memoryChanges.push({ addr, val: oldVal });
+    };
+
     const inst = this.instructions[this.pc];
     this.execute(inst);
     this.pc++;
@@ -178,6 +202,29 @@ export class Emulator {
       // Last instruction executed, IP should point past it
       this.cpu.registers.IP += 3; 
     }
+
+    this.cpu.onMemoryWrite = undefined;
+    this.history.push(entry);
+
+    return true;
+  }
+
+  stepBack(): boolean {
+    const entry = this.history.pop();
+    if (!entry) return false;
+
+    this.cpu.registers = { ...entry.registers };
+    this.cpu.flags = { ...entry.flags };
+    this.pc = entry.pc;
+    this.cpu.isHalted = entry.isHalted;
+    this.cpu.stdout = this.cpu.stdout.slice(0, entry.stdoutLength);
+
+    // Restore memory in reverse order
+    for (let i = entry.memoryChanges.length - 1; i >= 0; i--) {
+      const change = entry.memoryChanges[i];
+      this.cpu.memory[change.addr] = change.val;
+    }
+
     return true;
   }
 
