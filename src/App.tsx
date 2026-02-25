@@ -80,12 +80,12 @@ const assemblyMode = StreamLanguage.define({
 
 const assemblyHighlightStyle = HighlightStyle.define([
   { tag: tags.comment, color: "#a1a1aa" }, // zinc-400 (Light Gray)
-  { tag: tags.keyword, color: "#047857", fontWeight: "bold" }, // emerald-700 (Darker Green)
-  { tag: tags.variableName, color: "#059669" }, // emerald-600
-  { tag: tags.number, color: "#d97706" }, // amber-600 (Darker Amber)
-  { tag: tags.labelName, color: "#db2777" }, // pink-600 (Darker Pink)
-  { tag: tags.atom, color: "#52525b" }, // zinc-600
-  { tag: tags.string, color: "#d97706" }
+  { tag: tags.keyword, color: "#065f46", fontWeight: "bold" }, // emerald-800 (Darker Green for Mnemonics)
+  { tag: tags.variableName, color: "#10b981" }, // emerald-500 (Logo Color for Registers)
+  { tag: tags.number, color: "#f59e0b" }, // amber-500 (Bright Amber)
+  { tag: tags.labelName, color: "#ec4899" }, // pink-500 (Bright Pink)
+  { tag: tags.atom, color: "#71717a" }, // zinc-500
+  { tag: tags.string, color: "#f59e0b" }
 ]);
 
 const addLineHighlight = StateEffect.define<number>();
@@ -255,12 +255,14 @@ export default function App() {
     const url = URL.createObjectURL(blob);
     const a = document.createElement('a');
     a.href = url;
-    a.download = 'program.asm';
+    // Use current filename but ensure .asm extension
+    const name = fileName.endsWith('.asm') ? fileName : `${fileName.split('.')[0]}.asm`;
+    a.download = name;
     document.body.appendChild(a);
     a.click();
     document.body.removeChild(a);
     URL.revokeObjectURL(url);
-  }, [code]);
+  }, [code, fileName]);
 
   const handleUpload = useCallback(() => {
     fileInputRef.current?.click();
@@ -269,6 +271,11 @@ export default function App() {
   const onFileChange = useCallback((e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
     if (!file) return;
+
+    if (!file.name.toLowerCase().endsWith('.asm')) {
+      showNotification("Per favore carica un file .asm", "error");
+      return;
+    }
 
     const reader = new FileReader();
     reader.onload = (event) => {
@@ -349,7 +356,7 @@ export default function App() {
     setIsDragging(false);
     
     const file = e.dataTransfer.files?.[0];
-    if (file && (file.name.endsWith('.asm') || file.name.endsWith('.txt'))) {
+    if (file && file.name.toLowerCase().endsWith('.asm')) {
       const reader = new FileReader();
       reader.onload = (event) => {
         const content = event.target?.result as string;
@@ -362,7 +369,7 @@ export default function App() {
       };
       reader.readAsText(file);
     } else {
-      showNotification("Formato file non supportato. Usa .asm o .txt", "error");
+      showNotification("Formato file non supportato. Usa solo file .asm", "error");
     }
   }, [showNotification]);
 
@@ -552,7 +559,7 @@ export default function App() {
             type="file" 
             ref={fileInputRef} 
             onChange={onFileChange} 
-            accept=".asm,.txt" 
+            accept=".asm" 
             className="hidden" 
           />
           <div className="flex-1 overflow-hidden relative">
